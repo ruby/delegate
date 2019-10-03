@@ -1,8 +1,18 @@
-# Delegate
+# Delegator
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/delegate`. To experiment with that code, run `bin/console` for an interactive prompt.
+This library provides three different ways to delegate method calls to an
+object.  The easiest to use is SimpleDelegator.  Pass an object to the
+constructor and all methods supported by the object will be delegated.  This
+object can be changed later.
 
-TODO: Delete this and the text above, and describe your gem
+Going a step further, the top level DelegateClass method allows you to easily
+setup delegation through class inheritance.  This is considerably more
+flexible and thus probably the most common use for this library.
+
+Finally, if you need full control over the delegation scheme, you can inherit
+from the abstract class Delegator and customize as needed.  (If you find
+yourself needing this control, have a look at Forwardable which is also in
+the standard library.  It may suit your needs better.)
 
 ## Installation
 
@@ -22,7 +32,21 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+SimpleDelegator's implementation serves as a nice example of the use of
+Delegator:
+
+```ruby
+class SimpleDelegator < Delegator
+  def __getobj__
+    @delegate_sd_obj # return object we are delegating to, required
+  end
+
+  def __setobj__(obj)
+    @delegate_sd_obj = obj # change delegation object,
+                           # a feature we're providing
+  end
+end
+```
 
 ## Development
 
