@@ -4,7 +4,7 @@ require "delegate/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "delegate"
-  spec.version       = Delegate::VERSION
+  spec.version       = Delegator::VERSION
   spec.authors       = ["Hiroshi SHIBATA"]
   spec.email         = ["hsbt@ruby-lang.org"]
 
