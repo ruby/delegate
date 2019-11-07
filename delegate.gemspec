@@ -1,12 +1,14 @@
-lib = File.expand_path("lib", __dir__)
-$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require "delegate/version"
+begin
+  require_relative "lib/delegate/version"
+rescue LoadError # Fallback to load version file in ruby core repository
+  require_relative "version"
+end
 
 Gem::Specification.new do |spec|
   spec.name          = "delegate"
   spec.version       = Delegator::VERSION
-  spec.authors       = ["Hiroshi SHIBATA"]
-  spec.email         = ["hsbt@ruby-lang.org"]
+  spec.authors       = ["Yukihiro Matsumoto"]
+  spec.email         = ["matz@ruby-lang.org"]
 
   spec.summary       = %q{Provides three abilities to delegate method calls to an object.}
   spec.description   = %q{Provides three abilities to delegate method calls to an object.}
