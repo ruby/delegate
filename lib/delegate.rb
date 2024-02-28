@@ -107,19 +107,17 @@ class Delegator < BasicObject
     r
   end
 
-  KERNEL_RESPOND_TO = ::Kernel.instance_method(:respond_to?)
-  private_constant :KERNEL_RESPOND_TO
-
   # Handle BasicObject instances
   private def target_respond_to?(target, m, include_private)
+    kernel_respond_to = ::Kernel.instance_method(:respond_to?)
     case target
     when Object
       target.respond_to?(m, include_private)
     else
-      if KERNEL_RESPOND_TO.bind_call(target, :respond_to?)
+      if kernel_respond_to.bind_call(target, :respond_to?)
         target.respond_to?(m, include_private)
       else
-        KERNEL_RESPOND_TO.bind_call(target, m, include_private)
+        kernel_respond_to.bind_call(target, m, include_private)
       end
     end
   end
@@ -239,10 +237,15 @@ class Delegator < BasicObject
     super()
   end
 
-  @delegator_api = self.public_instance_methods
-  def self.public_api # :nodoc:
-    @delegator_api
+  delegator_api = self.public_instance_methods
+  Ractor.make_shareable(delegator_api) if defined?(::Object::Ractor)
+
+  public_api_proc = Proc.new do
+    delegator_api
   end
+  Ractor.make_shareable(public_api_proc) if defined?(::Object::Ractor)
+
+  define_singleton_method(:public_api, &public_api_proc) # :nodoc:
 end
 
 ##
@@ -411,34 +414,58 @@ def DelegateClass(superclass, &block)
       @delegate_dc_obj = obj
     end
     protected_instance_methods.each do |method|
-      define_method(method, Delegator.delegating_block(method))
+      method_block = Delegator.delegating_block(method)
+      Ractor.make_shareable(method_block) if defined?(Ractor)
+      define_method(method, &method_block)
       protected method
     end
     public_instance_methods.each do |method|
-      define_method(method, Delegator.delegating_block(method))
+      method_block = Delegator.delegating_block(method)
+      Ractor.make_shareable(method_block) if defined?(Ractor)
+      define_method(method, &method_block)
     end
   end
-  klass.define_singleton_method :public_instance_methods do |all=true|
+
+  public_instance_methods_proc = Proc.new do |all=true|
     super(all) | superclass.public_instance_methods
   end
-  klass.define_singleton_method :protected_instance_methods do |all=true|
+
+  protected_instance_methods_proc = Proc.new do |all=true|
     super(all) | superclass.protected_instance_methods
   end
-  klass.define_singleton_method :instance_methods do |all=true|
+
+  instance_methods_proc = Proc.new do |all=true|
     super(all) | superclass.instance_methods
   end
-  klass.define_singleton_method :public_instance_method do |name|
+
+  public_instance_method_proc = Proc.new do |name|
     super(name)
   rescue NameError
     raise unless self.public_instance_methods.include?(name)
     superclass.public_instance_method(name)
   end
-  klass.define_singleton_method :instance_method do |name|
+
+  instance_method_proc = Proc.new do |name|
     super(name)
   rescue NameError
     raise unless self.instance_methods.include?(name)
     superclass.instance_method(name)
   end
+
+  if defined?(Ractor)
+    Ractor.make_shareable(public_instance_methods_proc)
+    Ractor.make_shareable(protected_instance_methods_proc)
+    Ractor.make_shareable(instance_methods_proc)
+    Ractor.make_shareable(public_instance_method_proc)
+    Ractor.make_shareable(instance_method_proc)
+  end
+
+  klass.define_singleton_method(:public_instance_methods, &public_instance_methods_proc)
+  klass.define_singleton_method(:protected_instance_methods, &protected_instance_methods_proc)
+  klass.define_singleton_method(:instance_methods, &instance_methods_proc)
+  klass.define_singleton_method(:public_instance_method, &public_instance_method_proc)
+  klass.define_singleton_method(:instance_method, &instance_method_proc)
+
   klass.module_eval(&block) if block
   return klass
 end
