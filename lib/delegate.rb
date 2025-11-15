@@ -399,6 +399,14 @@ def DelegateClass(superclass, &block)
   protected_instance_methods -= ignores
   public_instance_methods = superclass.public_instance_methods
   public_instance_methods -= ignores
+
+  instance_methods = (public_instance_methods + protected_instance_methods)
+  normal, special = instance_methods.partition { |m| m.match?(/\A[a-zA-Z]\w*[!\?]?\z/) }
+
+  source = normal.map do |method|
+    "def #{method}(...); __getobj__.#{method}(...); end"
+  end
+
   klass.module_eval do
     def __getobj__ # :nodoc:
       unless defined?(@delegate_dc_obj)
@@ -407,18 +415,21 @@ def DelegateClass(superclass, &block)
       end
       @delegate_dc_obj
     end
+
     def __setobj__(obj)  # :nodoc:
       __raise__ ::ArgumentError, "cannot delegate to self" if self.equal?(obj)
       @delegate_dc_obj = obj
     end
-    protected_instance_methods.each do |method|
+
+    class_eval(source.join(";"), __FILE__, __LINE__)
+
+    special.each do |method|
       define_method(method, Delegator.delegating_block(method))
-      protected method
     end
-    public_instance_methods.each do |method|
-      define_method(method, Delegator.delegating_block(method))
-    end
+
+    protected(*protected_instance_methods)
   end
+
   klass.define_singleton_method :public_instance_methods do |all=true|
     super(all) | superclass.public_instance_methods
   end
