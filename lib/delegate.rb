@@ -344,15 +344,11 @@ class SimpleDelegator < Delegator
   end
 end
 
-def Delegator.delegating_code(mid) # :nodoc:
-  line = __LINE__+2
-  src = <<~RUBY
-  ruby2_keywords def #{mid}(*args, &block)
+def Delegator.delegating_block(mid) # :nodoc:
+  lambda do |*args, &block|
     target = self.__getobj__
-    target.__send__(:'#{mid}', *args, &block)
-  end
-  RUBY
-  [src, __FILE__, line]
+    target.__send__(mid, *args, &block)
+  end.ruby2_keywords
 end
 
 #
@@ -431,7 +427,7 @@ def DelegateClass(superclass, &block)
     class_eval(source.join(";"), __FILE__, __LINE__)
 
     special.each do |method|
-      module_eval(*Delegator.delegating_code(method))
+      define_method(method, Delegator.delegating_block(method))
     end
 
     protected(*protected_instance_methods)
